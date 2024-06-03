@@ -4,6 +4,7 @@ Created on Mon May 26 22:25:08 2024
 
 @author: Dušanka
 """
+
 #%% importovi
 import pandas as pd
 import numpy as np
@@ -16,11 +17,13 @@ from mlxtend.frequent_patterns import apriori, association_rules
 
 date_parser = lambda x: parse(x)
 
+
 #%% ucitavanje podataka
 
 path = Path(__file__).parent / "Crime.csv"
 
 df = pd.read_csv(path)
+
 
 print("Shape dataseta pre uklanjanja null: {}", df.shape)
 
@@ -85,7 +88,42 @@ df['Block Address'] = df['Block Address'].astype(str)
 
 
 print ("Oblik dataseta posle razdvajanja kolona: {}",df.shape)
+
+# Prebacivanje kolona za kasnije
+cols = ['Case Number', 'Occurred From Date', 'Reported Date', 'Crime Type',
+        'Block Address', 'Occurred Time', 'Occurred Date', 'Occurred Day',
+        'Occurred Month', 'Occurred Year', 'Reported Time']
+
+new_cols_order = ['Case Number', 'Occurred From Date', 'Reported Date', 'Crime Type',
+                  'Block Address', 'Occurred Date', 'Occurred Time', 'Occurred Day',
+                  'Occurred Month', 'Occurred Year', 'Reported Time']
+
+df = df[new_cols_order]
+
+
+
 print (df.columns)
+
+
+
+#%% Mapiranje string podataka na integere
+
+# Mapiranje tipova podataka
+print("\nUnique values:\n", np.unique(df['Crime Type']))
+print("TOTAL:", len(np.unique(df['Crime Type'])))
+
+mapping_dict = {'ARSON': 1, 'ASSAULT': 2, 'BURGLARY': 3, 'DUI ARREST': 4, 
+                'ROBBERY': 5, 'SHOPLIFTING': 6, 
+                'THEFT': 7, 'VANDALISM': 8}
+
+print ("********************")
+
+# Apply the mapping to the dataset
+df['Crime Type'] = df['Crime Type'].map(mapping_dict)
+
+print("\nUnique values:\n", np.unique(df['Crime Type']))
+print("TOTAL:", len(np.unique(df['Crime Type'])))
+
 
 #%% 2024 CNT 
 
@@ -108,26 +146,15 @@ print("PRE RESHAPE: \n\n",train_data)
 
 #%% Preprocessing za trening skup
 # Preoblikovanje trening skupa iz 1d niza u 2d niz
+
 dataset_train = train_data['Crime Type'].values 
 dataset_train = np.reshape(dataset_train, (-1,1)) 
 print("\n\nPOSLE RESHAPE: \n\n", dataset_train)
 
-# Mapiranje tipova podataka
-print("\nUnique values:\n", np.unique(dataset_train))
-print("TOTAL:", len(np.unique(dataset_train)))
-
-mapping_dict = {'ARSON': 1, 'ASSAULT': 2, 'BURGLARY': 3, 'DUI ARREST': 4, 
-                'ROBBERY': 5, 'SHOPLIFTING': 6, 
-                'THEFT': 7, 'VANDALISM': 8}
-
-# print ("\\\\\\\ PROSAO \\\\")
-
-# Apply the mapping to the dataset
-df['Crime Type'] = df['Crime Type'].map(mapping_dict)
 
 print("\nUnique values:\n", np.unique(dataset_train))
 
-
+#%%
 # Normalizacija trening skupa
 from sklearn.preprocessing import MinMaxScaler
 scaler = MinMaxScaler(feature_range=(0,1))
@@ -183,8 +210,6 @@ X_test, y_test = np.array(X_test), np.array(y_test)
 X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1],1))
 y_test = np.reshape(y_test, (y_test.shape[0],1))
 print("X_test :",X_test.shape,"y_test :",y_test.shape)
-
-#%% Treniranje 
 
 
 
