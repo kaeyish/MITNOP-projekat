@@ -10,12 +10,22 @@ import pandas as pd
 import numpy as np
 import os
 import math
+import matplotlib.pyplot as plt
 from pathlib import Path
 from datetime import datetime
 from dateutil.parser import parse
 from mlxtend.frequent_patterns import apriori, association_rules
 
 date_parser = lambda x: parse(x)
+
+#%% HOTENCODE FOO
+
+def hotencode (df, colname):
+    n  = np.unique(df[colname])
+    idx = 1
+    for i in n:
+      df[colname] = df[colname].apply(lambda a: idx if a == i else a)    
+      idx+=1
 
 
 #%% ucitavanje podataka
@@ -104,8 +114,17 @@ df = df[new_cols_order]
 
 print (df.columns)
 
+#%% mapiranje stringova na intove
+
+hotencode(df, 'Block Address')
+hotencode(df, "Crime Type")
 
 
+print (df["Block Address"])
+
+print (df.dtypes)
+
+'''
 #%% Mapiranje string podataka na integere
 
 # Mapiranje tipova podataka
@@ -121,13 +140,18 @@ print ("********************")
 # Apply the mapping to the dataset
 df['Crime Type'] = df['Crime Type'].map(mapping_dict)
 
+
 print("\nUnique values:\n", np.unique(df['Crime Type']))
 print("TOTAL:", len(np.unique(df['Crime Type'])))
+'''
+#%%
 
+x = df[['Crime Type','Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year']]
+y = df['Occurred Date']
 
 #%% 2024 CNT 
 
-count_2224 = df['Occurred Year'].value_counts().get(2022) + df['Occurred Year'].value_counts().get(2023) +df['Occurred Year'].value_counts().get(2024)  
+count_2224 = x['Occurred Year'].value_counts().get(2022) + x['Occurred Year'].value_counts().get(2023) +x['Occurred Year'].value_counts().get(2024)  
 
 count_2224_percent  = (count_2224 / df.shape[0])*100
 
@@ -138,16 +162,15 @@ print (f'This makes Test:Train ratio approximately {round(100-count_2224_percent
 
 #%% Razdvajanje na test i train skup
 print("\n\nTraining skup su podaci do 2022 sto je ~76%, refer to previous cell for details!")
-train_data = df[df['Occurred Year'] < 2022].iloc[:,3:4]
-test_data = df[df['Occurred Year'] >= 2022].iloc[:,3:4]
-
+train_data = x[x['Occurred Year'] < 2022]
+test_data = x[x['Occurred Year'] >= 2022]
 print("Train and test shapes after split: \n\tTest",train_data.shape, "\n\tTrain", test_data.shape)
 print("PRE RESHAPE: \n\n",train_data)
 
 #%% Preprocessing za trening skup
 # Preoblikovanje trening skupa iz 1d niza u 2d niz
 
-dataset_train = train_data['Crime Type'].values 
+dataset_train = train_data.values 
 dataset_train = np.reshape(dataset_train, (-1,1)) 
 print("\n\nPOSLE RESHAPE: \n\n", dataset_train)
 
@@ -166,7 +189,7 @@ print("\n\n*****TRAIN*****\n",scaled_train[:5])
 #%% Preprocessing za test skup
 
 # Preoblikovanje test skupa iz 1d niza u 2d niz
-dataset_test = test_data['Crime Type'].values 
+dataset_test = test_data.values 
 dataset_test = np.reshape(dataset_test, (-1,1)) 
 print("\n\nPOSLE RESHAPE: \n\n", dataset_test)
 
@@ -211,6 +234,8 @@ X_test = np.reshape(X_test, (X_test.shape[0], X_test.shape[1],1))
 y_test = np.reshape(y_test, (y_test.shape[0],1))
 print("X_test :",X_test.shape,"y_test :",y_test.shape)
 
+print (X_test.shape)
+
 
 #%% Ucitavanje biblioteka za neuronsku mrezu
 
@@ -219,52 +244,12 @@ from keras.layers import LSTM
 from keras.layers import Dense
 from keras.layers import SimpleRNN
 from keras.layers import Dropout
+from keras import metrics
 from keras.layers import GRU, Bidirectional
 from keras.optimizers import SGD
+from keras.regularizers import l2
 from sklearn import metrics
 from sklearn.metrics import mean_squared_error
-
-#%%
-
-
-from scikeras.wrappers import KerasRegressor
-from sklearn.model_selection import GridSearchCV
-
-# Function to create model, required for KerasRegressor
-def create_model(optimizer='adam', activation='relu'):
-    # create model
-    model = Sequential()
-    model.add(SimpleRNN(50, activation=activation, return_sequences=True, input_shape=(X_train.shape[1],1)))
-    model.add(Dropout(0.2))
-    model.add(SimpleRNN(50, activation=activation, return_sequences=True))
-    model.add(SimpleRNN(50, activation=activation, return_sequences=True))
-    model.add(SimpleRNN(50, activation=activation, return_sequences=True))
-    model.add(SimpleRNN(50, activation=activation, return_sequences=True))
-    model.add(SimpleRNN(50, activation=activation, return_sequences=True))
-    model.add(SimpleRNN(50, activation=activation, return_sequences=True))
-    model.add(SimpleRNN(50, activation=activation))
-    model.add(Dense(1, activation='sigmoid'))
-    # Compile model
-    model.compile(loss='mean_squared_error', optimizer=optimizer)
-    return model
-
-# create model
-model = KerasRegressor(build_fn=create_model, verbose=0)
-
-# define the grid search parameters
-optimizer = ['SGD', 'RMSprop', 'Adagrad', 'Adadelta', 'Adam', 'Adamax', 'Nadam']
-activation = ['softmax', 'softplus', 'softsign', 'relu', 'tanh', 'sigmoid', 'hard_sigmoid', 'linear']
-param_grid = dict(optimizer=optimizer, activation=activation)
-grid = GridSearchCV(estimator=model, param_grid=param_grid, n_jobs=-1, cv=3)
-grid_result = grid.fit(X_train, y_train)
-
-# summarize results
-print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
-means = grid_result.cv_results_['mean_test_score']
-stds = grid_result.cv_results_['std_test_score']
-params = grid_result.cv_results_['params']
-for mean, stdev, param in zip(means, stds, params):
-    print("%f (%f) with: %r" % (mean, stdev, param))
 
 #%% Treniranje 
 # initializing the RNN
@@ -322,16 +307,35 @@ regressor.summary()
 regressorLSTM = Sequential()
 
 #Adding LSTM layers
+
+
+# Adding LSTM layers
+regressorLSTM.add(LSTM(50, return_sequences=True, input_shape=(X_train.shape[1],1)))
+regressorLSTM.add(Dropout(0.2))  # Add dropout with 20% probability
+
+regressorLSTM.add(LSTM(100, return_sequences=True))  # Increase number of LSTM units
+regressorLSTM.add(Dropout(0.2))
+
+regressorLSTM.add(LSTM(50, return_sequences=False))
+regressorLSTM.add(Dropout(0.2))
+
+# Adding Dense layers
+regressorLSTM.add(Dense(50, kernel_regularizer=l2(0.01)))  # Add L2 regularization
+regressorLSTM.add(Dense(1))
+
+
+'''
 regressorLSTM.add(LSTM(50, 
 					return_sequences = True, 
 					input_shape = (X_train.shape[1],1)))
 regressorLSTM.add(LSTM(50, 
 					return_sequences = False))
+
 regressorLSTM.add(Dense(25))
 
 #Adding the output layer
 regressorLSTM.add(Dense(1))
-
+'''
 #Compiling the model
 regressorLSTM.compile(optimizer = 'adam',
 					loss = 'mean_squared_error',
@@ -340,42 +344,53 @@ regressorLSTM.compile(optimizer = 'adam',
 #Fitting the model
 regressorLSTM.fit(X_train, 
 				y_train, 
-				batch_size = 32, 
-				epochs = 12)
+				batch_size = 128, 
+				epochs = 5)
 regressorLSTM.summary()
 #%% GRU
 
 #Initialising the model
 regressorGRU = Sequential()
-
+ 
 # GRU layers with Dropout regularisation
 regressorGRU.add(GRU(units=50, 
-					return_sequences=True,
-					input_shape=(X_train.shape[1],1),
-					activation='tanh'))
+                     return_sequences=True,
+                     input_shape=(X_train.shape[1],1),
+                     activation='tanh'))
 regressorGRU.add(Dropout(0.2))
-
+ 
 regressorGRU.add(GRU(units=50, 
-					return_sequences=True,
-					activation='tanh'))
-
-
+                     return_sequences=True,
+                     activation='tanh'))
+ 
+regressorGRU.add(GRU(units=50, 
+                     return_sequences=True,
+                     activation='tanh'))
+ 
+regressorGRU.add(GRU(units=50, 
+                     activation='tanh'))
+ 
 # The output layer
 regressorGRU.add(Dense(units=1,
-					activation='relu'))
+                       activation='relu'))
 # Compiling the RNN
-regressorGRU.compile(optimizer = 'adam',
-					loss = 'mean_squared_error',
-					metrics = ["accuracy"])
-
+regressorGRU.compile(optimizer=SGD(learning_rate=0.01, 
+                                   momentum=0.9, 
+                                   nesterov=False),
+                     loss='mean_squared_error')
 # Fitting the data
-regressorGRU.fit(X_train,y_train,epochs=20,batch_size=64)
+regressorGRU.fit(X_train,y_train,epochs=20,batch_size=256)
 regressorGRU.summary()
 
 #%% Testiranje
 y_RNN = regressor.predict(X_test)
 y_LSTM = regressorLSTM.predict(X_test)
 y_GRU = regressorGRU.predict(X_test)
+
+print (y_RNN.shape, y_LSTM.shape, y_GRU.shape)
+
+#%%
+
 
 y_RNN_O = scaler.inverse_transform(y_RNN) 
 y_LSTM_O = scaler.inverse_transform(y_LSTM) 
@@ -415,23 +430,46 @@ plt.ylabel("Crime Rate")
 plt.show()
 
 
-
+'''
 
 #%% APRIORI WANNABE
 
 # Kreiranje transakcija
-basket = df.groupby(['Case Number', 'Crime Type']).size().unstack(fill_value=0)
+basket = df.groupby(['Occurred Date', 'Crime Type']).size().unstack(fill_value=0)
 basket = basket.applymap(lambda x: x > 0)  # konverzija u bool tip
+
+print (basket)
 
 # Primena Apriori algoritma
 min_support_value = 0.01  
 frequent_itemsets = apriori(basket, min_support=min_support_value, use_colnames=True)
+print(frequent_itemsets)
 
 # Generisanje pravila asocijacije
 metric_type = "lift"  
 min_threshold_value = 1
 rules = association_rules(frequent_itemsets, metric=metric_type, min_threshold=min_threshold_value)
 
+print (rules)
 # Ispisivanje rezultata
-print(frequent_itemsets)
-print(rules)
+#print(frequent_itemsets)
+#print(rules)
+
+#%% CT LOC VIS
+#Random sampling of association rules for comparison of confidence and lift values
+rules_random=rules.sample(10, random_state = 42)
+rules_lift = rules_random[['lift']].to_numpy()
+rules_lift = (rules_lift/rules_lift.max()).transpose()[0]
+rules_conf = rules_random[['confidence']].to_numpy()
+rules_conf = (rules_conf/rules_conf.max()).transpose()[0]
+width = 0.40
+plt.figure(figsize=(12, 6), dpi=200)
+
+# plot data in grouped manner of bar type
+plt.bar(np.arange(len(rules_random))-0.2,rules_lift, width, color='black')
+plt.bar(np.arange(len(rules_random))+0.2,rules_conf, width, hatch='//', edgecolor='black', facecolor='white')
+plt.xlabel('Instance index')
+plt.ylabel('Normalized metric value')
+plt.legend(['lift','confidence'])
+plt.xticks(range(0,10));
+'''
