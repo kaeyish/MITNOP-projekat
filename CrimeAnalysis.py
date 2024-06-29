@@ -7,6 +7,7 @@ Created on Mon May 26 22:25:08 2024
 
 #%% importovi
 import pandas as pd
+from pandas import concat
 import numpy as np
 import os
 import math
@@ -27,7 +28,21 @@ def hotencode (df, colname):
       df[colname] = df[colname].apply(lambda a: idx if a == i else a)    
       idx+=1
 
+#%%
 
+#descale foo
+def trans(y):
+    
+    y = y.flatten()
+    new_df = pd.DataFrame(columns=['Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year'])
+    
+    for i in (0,len(y),4):
+        elements = y[i:i+4]
+        print (elements)
+        line = {'Block Address': elements[0], 'Occurred Day': elements[1],'Occurred Month':elements[2], 'Occurred Year': elements[3]}
+        new_df = pd.DataFrame(np.insert(new_df.values, 0, values=line, axis=0),columns = new_df.columns)
+    
+    return new_df
 #%% ucitavanje podataka
 
 path = Path(__file__).parent / "Crime.csv"
@@ -47,13 +62,16 @@ df = df.drop(droppable, axis = 1)
 print("Shape dataseta posle uklanjanja null i end date: {}", df.shape)
 
 
-df.rename({'Occurred From Date':'Ocurred Date'})
+df = df.rename({'Occurred From Date':'Ocurred Date'})
 
-# print (df.dtypes)
+print (df.dtypes)
 
-# print (df["Reported Date"])
+print (df["Case Number"])
 
+df['Case Number'] = df['Case Number'].apply(lambda x: x.replace('-', ''))
+df['Case Number'] = pd.to_numeric(df['Case Number'], errors='coerce')
 
+print (df["Case Number"])
 
 #%% parsiranje podataka
 
@@ -124,30 +142,10 @@ print (df["Block Address"])
 
 print (df.dtypes)
 
-'''
-#%% Mapiranje string podataka na integere
-
-# Mapiranje tipova podataka
-print("\nUnique values:\n", np.unique(df['Crime Type']))
-print("TOTAL:", len(np.unique(df['Crime Type'])))
-
-mapping_dict = {'ARSON': 1, 'ASSAULT': 2, 'BURGLARY': 3, 'DUI ARREST': 4, 
-                'ROBBERY': 5, 'SHOPLIFTING': 6, 
-                'THEFT': 7, 'VANDALISM': 8}
-
-print ("********************")
-
-# Apply the mapping to the dataset
-df['Crime Type'] = df['Crime Type'].map(mapping_dict)
-
-
-print("\nUnique values:\n", np.unique(df['Crime Type']))
-print("TOTAL:", len(np.unique(df['Crime Type'])))
-'''
 #%%
 
-x = df[['Crime Type','Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year']]
-y = df['Occurred Date']
+x = df[['Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year']]
+y = df['Crime Type']
 
 #%% 2024 CNT 
 
@@ -191,7 +189,6 @@ print("\n\n*****TRAIN*****\n",scaled_train[:5])
 # Preoblikovanje test skupa iz 1d niza u 2d niz
 dataset_test = test_data.values 
 dataset_test = np.reshape(dataset_test, (-1,1)) 
-print("\n\nPOSLE RESHAPE: \n\n", dataset_test)
 
 
 # Normalizacija test skupa
@@ -299,7 +296,7 @@ regressor.compile(optimizer = SGD(learning_rate=0.01,
 				loss = "mean_squared_error")
 
 # fitting the model
-regressor.fit(X_train, y_train, epochs = 10, batch_size = 32)
+regressor.fit(X_train, y_train, epochs = 15, batch_size = 512)
 regressor.summary()
 
 #%% LSTM Model
@@ -311,16 +308,16 @@ regressorLSTM = Sequential()
 
 # Adding LSTM layers
 regressorLSTM.add(LSTM(50, return_sequences=True, input_shape=(X_train.shape[1],1)))
-regressorLSTM.add(Dropout(0.2))  # Add dropout with 20% probability
+regressorLSTM.add(Dropout(0.3))  # Add dropout with 30% probability
 
 regressorLSTM.add(LSTM(100, return_sequences=True))  # Increase number of LSTM units
-regressorLSTM.add(Dropout(0.2))
-
-regressorLSTM.add(LSTM(50, return_sequences=False))
-regressorLSTM.add(Dropout(0.2))
 
 # Adding Dense layers
 regressorLSTM.add(Dense(50, kernel_regularizer=l2(0.01)))  # Add L2 regularization
+
+regressorLSTM.add(LSTM(50, 
+					return_sequences = False))
+
 regressorLSTM.add(Dense(1))
 
 
@@ -344,11 +341,11 @@ regressorLSTM.compile(optimizer = 'adam',
 #Fitting the model
 regressorLSTM.fit(X_train, 
 				y_train, 
-				batch_size = 128, 
-				epochs = 5)
+				batch_size = 512,   
+				epochs = 15)
 regressorLSTM.summary()
 #%% GRU
-
+ 
 #Initialising the model
 regressorGRU = Sequential()
  
@@ -379,63 +376,118 @@ regressorGRU.compile(optimizer=SGD(learning_rate=0.01,
                                    nesterov=False),
                      loss='mean_squared_error')
 # Fitting the data
-regressorGRU.fit(X_train,y_train,epochs=20,batch_size=256)
+regressorGRU.fit(X_train,y_train,epochs=15,batch_size=512)
 regressorGRU.summary()
 
 #%% Testiranje
+y_GRU = regressorGRU.predict(X_test)
 y_RNN = regressor.predict(X_test)
 y_LSTM = regressorLSTM.predict(X_test)
-y_GRU = regressorGRU.predict(X_test)
+
 
 print (y_RNN.shape, y_LSTM.shape, y_GRU.shape)
 
 #%%
 
-
+y_GRU_O = scaler.inverse_transform(y_GRU)
 y_RNN_O = scaler.inverse_transform(y_RNN) 
 y_LSTM_O = scaler.inverse_transform(y_LSTM) 
-y_GRU_O = scaler.inverse_transform(y_GRU)
+
+
+print(y_GRU_O[:10])
+
+
+#%%
+
+y_GRU_O = trans(y_GRU_O) 
+
+print (y_GRU_O.shape)
+
+
+
 
 #%% Vizualizacija
-
-import matplotlib.pyplot as plt
 
 fig, axs = plt.subplots(3,figsize =(18,12),sharex=True, sharey=True)
 fig.suptitle('Model Predictions')
 
 #Simple RNN Plot
-axs[2].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
-axs[2].plot(test_data.index, train_data['Crime Type'], label = "test_data", color = "g")
-axs[2].plot(test_data.index[50:], y_RNN_O, label = "y_RNN", color = "brown")
+axs[2].plot(train_data.index[150:], train_data['Block Address'][150:], label = "train_data", color = "b")
+axs[2].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
+axs[2].plot(dataset_test[50:], y_RNN_O[:], label = "y_RNN", color = "brown")
+
 axs[2].legend()
 axs[2].title.set_text("Basic RNN")
 
 #Plot for LSTM predictions
-#axs[0].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
-axs[0].plot(test_data.index, test_data['Crime Type'], label = "test_data", color = "g")
-axs[0].plot(test_data.index[50:], y_LSTM_O, label = "y_LSTM", color = "orange")
+axs[0].plot(train_data.index[150:], train_data['Block Address'][150:], label = "train_data", color = "b")
+axs[0].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
+axs[0].plot(dataset_test[50:], y_LSTM_O[:], label = "y_LSTM", color = "orange")
 axs[0].legend()
 axs[0].title.set_text("LSTM")
 
 #Plot for GRU predictions
-#axs[1].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
-axs[1].plot(test_data.index, test_data['Crime Type'], label = "test_data", color = "g")
-axs[1].plot(test_data.index[50:], y_GRU_O, label = "y_GRU", color = "red")
+axs[1].plot(train_data.index[150:], train_data['Block Address'][150:], label = "train_data", color = "b")
+axs[1].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
+axs[1].plot(dataset_test[50:], y_GRU_O[:], label = "y_GRU", color = "red")
 axs[1].legend()
 axs[1].title.set_text("GRU")
 
+#%%
 plt.xlabel("Days")
 plt.ylabel("Crime Rate")
 
 plt.show()
 
 
-'''
 
 #%% APRIORI WANNABE
 
 # Kreiranje transakcija
-basket = df.groupby(['Occurred Date', 'Crime Type']).size().unstack(fill_value=0)
+
+#Occurred month and crime type
+basket = df.groupby(['Occurred Month','Block Address', 'Crime Type']).size().unstack(fill_value=0)
+basket = basket.applymap(lambda x: x > 0)  # konverzija u bool tip
+
+print (basket)
+
+# Primena Apriori algoritma
+min_support_value = 0.01  
+frequent_itemsets = apriori(basket, min_support=min_support_value, use_colnames=True)
+print(frequent_itemsets)
+
+# Generisanje pravila asocijacije
+metric_type = "lift"  
+min_threshold_value = 1
+rules = association_rules(frequent_itemsets, metric=metric_type, min_threshold=min_threshold_value)
+
+print (rules)
+# Ispisivanje rezultata
+print(frequent_itemsets.sort_values(by='support', ascending=False).head(10))
+#print(rules)
+
+#%% VISUALIZATION
+#Random sampling of association rules for comparison of confidence and lift values
+rules_random=rules.sample(20, random_state = 42)
+rules_lift = rules_random[['support']].to_numpy()
+rules_lift = (rules_lift/rules_lift.max()).transpose()[0]
+rules_conf = rules_random[['confidence']].to_numpy()
+rules_conf = (rules_conf/rules_conf.max()).transpose()[0]
+width = 0.40
+plt.figure(figsize=(12, 6), dpi=200)
+
+# plot data in grouped manner of bar type
+plt.bar(np.arange(len(rules_random))-0.2,rules_lift, width, color='black')
+plt.bar(np.arange(len(rules_random))+0.2,rules_conf, width, hatch='//', edgecolor='black', facecolor='white')
+plt.xlabel('Instance index')
+plt.ylabel('Normalized metric value')
+plt.legend(['lift','confidence'])
+plt.xticks(range(0,10));
+
+
+#%%
+#Block Address and Crime type
+basket = df.groupby(['Block Address', 'Crime Type']).size().unstack(fill_value=0)
 basket = basket.applymap(lambda x: x > 0)  # konverzija u bool tip
 
 print (basket)
@@ -472,4 +524,50 @@ plt.xlabel('Instance index')
 plt.ylabel('Normalized metric value')
 plt.legend(['lift','confidence'])
 plt.xticks(range(0,10));
-'''
+
+#%%
+
+#Block Address and Occurred Date
+basket = df.groupby(['Block Address', 'Occurred Date']).size().unstack(fill_value=0)
+basket = basket.applymap(lambda x: x > 0)  # konverzija u bool tip
+
+if (basket.size > 0):
+    print(basket)
+else: print ("Prazan!")
+
+# Primena Apriori algoritma
+min_support_value = 0.01  
+frequent_itemsets = apriori(basket, min_support=min_support_value, use_colnames=True)
+if (frequent_itemsets.size > 0):
+    print(frequent_itemsets)
+else: print ("Prazan!")
+
+# Generisanje pravila asocijacije
+metric_type = "lift"  
+min_threshold_value = 1
+rules = association_rules(frequent_itemsets, metric=metric_type, min_threshold=min_threshold_value)
+
+if (rules.size > 0):
+    print(rules)
+else: print ("Prazan!")
+# Ispisivanje rezultata
+#print(frequent_itemsets)
+#print(rules)
+
+#%% CT LOC VIS
+#Random sampling of association rules for comparison of confidence and lift values
+rules_random=rules.sample(10, random_state = 42)
+rules_lift = rules_random[['lift']].to_numpy()
+rules_lift = (rules_lift/rules_lift.max()).transpose()[0]
+rules_conf = rules_random[['confidence']].to_numpy()
+rules_conf = (rules_conf/rules_conf.max()).transpose()[0]
+width = 0.40
+plt.figure(figsize=(12, 6), dpi=200)
+
+# plot data in grouped manner of bar type
+plt.bar(np.arange(len(rules_random))-0.2,rules_lift, width, color='black')
+plt.bar(np.arange(len(rules_random))+0.2,rules_conf, width, hatch='//', edgecolor='black', facecolor='white')
+plt.xlabel('Instance index')
+plt.ylabel('Normalized metric value')
+plt.legend(['lift','confidence'])
+plt.xticks(range(0,10));
