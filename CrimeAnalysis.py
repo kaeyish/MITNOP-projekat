@@ -34,13 +34,14 @@ def hotencode (df, colname):
 def trans(y):
     
     y = y.flatten()
-    new_df = pd.DataFrame(columns=['Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year'])
-    
-    for i in (0,len(y),4):
-        elements = y[i:i+4]
-        print (elements)
-        line = {'Block Address': elements[0], 'Occurred Day': elements[1],'Occurred Month':elements[2], 'Occurred Year': elements[3]}
-        new_df = pd.DataFrame(np.insert(new_df.values, 0, values=line, axis=0),columns = new_df.columns)
+    new_df = pd.DataFrame(columns=['Crime Type', 'Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year'])
+    for i in range(0,len(y),5):
+        elements = y[i:i+5]
+        line = {'Crime Type':elements[0],'Block Address': elements[1], 'Occurred Day': elements[2],'Occurred Month':elements[3], 'Occurred Year': elements[4]}
+        new_row_df = pd.DataFrame([line])
+
+        # Concatenate the new row DataFrame with the original DataFrame
+        new_df = pd.concat([new_row_df, new_df], ignore_index=True)
     
     return new_df
 #%% ucitavanje podataka
@@ -144,8 +145,8 @@ print (df.dtypes)
 
 #%%
 
-x = df[['Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year']]
-y = df['Crime Type']
+x = df[['Crime Type', 'Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year']]
+#y = df['Crime Type']
 
 #%% 2024 CNT 
 
@@ -271,17 +272,6 @@ regressor.add(SimpleRNN(units = 50,
 						activation = "tanh",
 						return_sequences = True))
 
-regressor.add(SimpleRNN(units = 50,
-						activation = "tanh",
-						return_sequences = True))
-
-regressor.add(SimpleRNN(units = 50, 
-						activation = "tanh",
-						return_sequences = True))
-
-regressor.add(SimpleRNN(units = 50,
-						activation = "tanh",
-						return_sequences = True))
 
 
 regressor.add( SimpleRNN(units = 50))
@@ -296,7 +286,7 @@ regressor.compile(optimizer = SGD(learning_rate=0.01,
 				loss = "mean_squared_error")
 
 # fitting the model
-regressor.fit(X_train, y_train, epochs = 15, batch_size = 512)
+regressor.fit(X_train, y_train, epochs = 10, batch_size = 512)
 regressor.summary()
 
 #%% LSTM Model
@@ -320,19 +310,6 @@ regressorLSTM.add(LSTM(50,
 
 regressorLSTM.add(Dense(1))
 
-
-'''
-regressorLSTM.add(LSTM(50, 
-					return_sequences = True, 
-					input_shape = (X_train.shape[1],1)))
-regressorLSTM.add(LSTM(50, 
-					return_sequences = False))
-
-regressorLSTM.add(Dense(25))
-
-#Adding the output layer
-regressorLSTM.add(Dense(1))
-'''
 #Compiling the model
 regressorLSTM.compile(optimizer = 'adam',
 					loss = 'mean_squared_error',
@@ -342,7 +319,7 @@ regressorLSTM.compile(optimizer = 'adam',
 regressorLSTM.fit(X_train, 
 				y_train, 
 				batch_size = 512,   
-				epochs = 15)
+				epochs = 10)
 regressorLSTM.summary()
 #%% GRU
  
@@ -356,13 +333,6 @@ regressorGRU.add(GRU(units=50,
                      activation='tanh'))
 regressorGRU.add(Dropout(0.2))
  
-regressorGRU.add(GRU(units=50, 
-                     return_sequences=True,
-                     activation='tanh'))
- 
-regressorGRU.add(GRU(units=50, 
-                     return_sequences=True,
-                     activation='tanh'))
  
 regressorGRU.add(GRU(units=50, 
                      activation='tanh'))
@@ -371,12 +341,11 @@ regressorGRU.add(GRU(units=50,
 regressorGRU.add(Dense(units=1,
                        activation='relu'))
 # Compiling the RNN
-regressorGRU.compile(optimizer=SGD(learning_rate=0.01, 
-                                   momentum=0.9, 
-                                   nesterov=False),
-                     loss='mean_squared_error')
+regressorGRU.compile(optimizer = 'adam',
+					loss = 'mean_squared_error',
+					metrics = ["accuracy"])
 # Fitting the data
-regressorGRU.fit(X_train,y_train,epochs=15,batch_size=512)
+regressorGRU.fit(X_train,y_train,epochs=10,batch_size=512)
 regressorGRU.summary()
 
 #%% Testiranje
@@ -387,49 +356,54 @@ y_LSTM = regressorLSTM.predict(X_test)
 
 print (y_RNN.shape, y_LSTM.shape, y_GRU.shape)
 
-#%%
+#%% reverse scaler
 
 y_GRU_O = scaler.inverse_transform(y_GRU)
 y_RNN_O = scaler.inverse_transform(y_RNN) 
 y_LSTM_O = scaler.inverse_transform(y_LSTM) 
 
+print (y_LSTM_O[:10])
 
-print(y_GRU_O[:10])
+#%% transform back to numpy array
+
+y_GRU_O = trans(y_GRU_O) 
+y_RNN_O = trans(y_RNN_O) 
+y_LSTM_O = trans(y_LSTM_O) 
 
 
 #%%
 
-y_GRU_O = trans(y_GRU_O) 
 
-print (y_GRU_O.shape)
-
+#print (y_GRU_O)
+print (y_LSTM_O[:10])
+#print (y_RNN_O[:10])
 
 
 
 #%% Vizualizacija
 
-fig, axs = plt.subplots(3,figsize =(18,12),sharex=True, sharey=True)
+fig, axs = plt.subplots(3,figsize =(18,12),sharex=True, sharey=False)
 fig.suptitle('Model Predictions')
 
 #Simple RNN Plot
-axs[2].plot(train_data.index[150:], train_data['Block Address'][150:], label = "train_data", color = "b")
+#axs[2].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
 axs[2].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
-axs[2].plot(dataset_test[50:], y_RNN_O[:], label = "y_RNN", color = "brown")
+axs[2].plot(y_RNN_O.index, y_RNN_O['Block Address'], label = "y_RNN", color = "brown")
 
 axs[2].legend()
 axs[2].title.set_text("Basic RNN")
 
 #Plot for LSTM predictions
-axs[0].plot(train_data.index[150:], train_data['Block Address'][150:], label = "train_data", color = "b")
+#axs[0].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
 axs[0].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
-axs[0].plot(dataset_test[50:], y_LSTM_O[:], label = "y_LSTM", color = "orange")
+axs[0].plot(y_LSTM_O.index, y_LSTM_O['Block Address'], label = "y_LSTM", color = "orange")
 axs[0].legend()
 axs[0].title.set_text("LSTM")
 
 #Plot for GRU predictions
-axs[1].plot(train_data.index[150:], train_data['Block Address'][150:], label = "train_data", color = "b")
+#axs[1].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
 axs[1].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
-axs[1].plot(dataset_test[50:], y_GRU_O[:], label = "y_GRU", color = "red")
+axs[1].plot(y_GRU_O.index, y_GRU_O['Block Address'], label = "y_GRU", color = "red")
 axs[1].legend()
 axs[1].title.set_text("GRU")
 
