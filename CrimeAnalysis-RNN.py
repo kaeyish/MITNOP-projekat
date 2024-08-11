@@ -27,10 +27,9 @@ def hotencode (df, colname):
 def trans(y):
     
     y = y.flatten()
-    new_df = pd.DataFrame(columns=['Crime Type', 'Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year'])
-    for i in range(0,len(y),5):
-        elements = y[i:i+5]
-        line = {'Crime Type':elements[0],'Block Address': elements[1], 'Occurred Day': elements[2],'Occurred Month':elements[3], 'Occurred Year': elements[4]}
+    new_df = pd.DataFrame(columns=['Counts'])
+    for i in range(0,len(y)):
+        line = {'Counts':y[i]}
         new_row_df = pd.DataFrame([line])
 
         # Concatenate the new row DataFrame with the original DataFrame
@@ -138,6 +137,8 @@ print (df.dtypes)
 
 #%%
 
+
+
 x = df[['Crime Type', 'Block Address' , 'Occurred Day', 'Occurred Month', 'Occurred Year']]
 #y = df['Crime Type']
 
@@ -158,6 +159,11 @@ train_data = x[x['Occurred Year'] < 2022]
 test_data = x[x['Occurred Year'] >= 2022]
 print("Train and test shapes after split: \n\tTest",train_data.shape, "\n\tTrain", test_data.shape)
 print("PRE RESHAPE: \n\n",train_data)
+
+train_data = train_data.groupby(['Block Address']).size()
+test_data = test_data.groupby(['Block Address']).size()
+
+print (train_data.sort_values(ascending = False))
 
 #%% Preprocessing za trening skup
 # Preoblikovanje trening skupa iz 1d niza u 2d niz
@@ -279,7 +285,7 @@ regressor.compile(optimizer = SGD(learning_rate=0.01,
 				loss = "mean_squared_error")
 
 # fitting the model
-regressor.fit(X_train, y_train, epochs = 10, batch_size = 512)
+regressor.fit(X_train, y_train, epochs = 25, batch_size = 512)
 regressor.summary()
 
 #%% LSTM Model
@@ -312,7 +318,7 @@ regressorLSTM.compile(optimizer = 'adam',
 regressorLSTM.fit(X_train, 
 				y_train, 
 				batch_size = 512,   
-				epochs = 10)
+				epochs = 15)
 regressorLSTM.summary()
 #%% GRU
  
@@ -338,7 +344,7 @@ regressorGRU.compile(optimizer = 'adam',
 					loss = 'mean_squared_error',
 					metrics = ["accuracy"])
 # Fitting the data
-regressorGRU.fit(X_train,y_train,epochs=10,batch_size=512)
+regressorGRU.fit(X_train,y_train,epochs=20,batch_size=512)
 regressorGRU.summary()
 
 #%% Testiranje
@@ -380,23 +386,23 @@ fig.suptitle('Model Predictions')
 
 #Simple RNN Plot
 #axs[2].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
-axs[2].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
-axs[2].plot(y_RNN_O.index, y_RNN_O['Block Address'], label = "y_RNN", color = "brown")
+axs[2].plot(test_data.index, test_data[:], label = "test_data", color = "g")
+axs[2].plot(np.arange(len(y_RNN_O)), y_RNN_O[:], label = "y_RNN", color = "brown")
 
 axs[2].legend()
 axs[2].title.set_text("Basic RNN")
 
 #Plot for LSTM predictions
 #axs[0].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
-axs[0].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
-axs[0].plot(y_LSTM_O.index, y_LSTM_O['Block Address'], label = "y_LSTM", color = "orange")
+axs[0].plot(test_data.index, test_data[:], label = "test_data", color = "g")
+axs[0].plot(np.arange(len(y_LSTM_O)), y_LSTM_O[:], label = "y_LSTM", color = "orange")
 axs[0].legend()
 axs[0].title.set_text("LSTM")
 
 #Plot for GRU predictions
 #axs[1].plot(train_data.index[150:], train_data['Crime Type'][150:], label = "train_data", color = "b")
-axs[1].plot(test_data.index, test_data['Block Address'], label = "test_data", color = "g")
-axs[1].plot(y_GRU_O.index, y_GRU_O['Block Address'], label = "y_GRU", color = "red")
+axs[1].plot(test_data.index, test_data[:], label = "test_data", color = "g")
+axs[1].plot(np.arange(len(y_GRU_O)), y_GRU_O[:], label = "y_GRU", color = "red")
 axs[1].legend()
 axs[1].title.set_text("GRU")
 

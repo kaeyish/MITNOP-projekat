@@ -250,17 +250,30 @@ plt.show()
 #Prikaz nasumicnih rezultata radi interpretacije
 rules_random=rules.sample(10, random_state = 42)
 rules_lift = rules_random[['lift']].to_numpy()
+rules_conf = rules_random[['confidence']].to_numpy()
 rules_acters = rules_random[['antecedents', 'consequents']]
 rules_lift = (rules_lift/rules_lift.max()).transpose()[0]
+rules_conf = (rules_conf/rules_conf.max()).transpose()[0]
 width = 0.40
+
+x = np.arange(len(rules_random))
+offset = width / 2
+
 plt.figure(figsize=(12, 6), dpi=200)
 
-plt.bar(np.arange(len(rules_random)),rules_lift, width, color='black')
+# Plot rules_lift
+plt.bar(x - offset, rules_lift, width, color='black', label='Lift')
+
+# Plot rules_conf
+plt.bar(x + offset, rules_conf, width, hatch="//", color='red', label='Confidence')
+
 plt.axhline(y=0.5, color='red', linewidth=3, linestyle='dotted', label='Threshold')
 plt.xlabel('Instance index')
-plt.ylabel('Normalized lift value')
-plt.title("Lift values when analyzing most frequent crimes and their relations")
-plt.xticks(range(0,10));
+plt.ylabel('Normalized value')
+plt.title("Lift and Confidence values for most frequent crimes")
+plt.xticks(range(0, 10))
+plt.legend()
+plt.show()
 
 rules_data = {
     'Antecedents': [', '.join(map(str, rule)) for rule in rules_acters['antecedents']],
@@ -300,6 +313,16 @@ print(frequent_itemsets.sort_values(by='support', ascending=False).head(10))
 
 frequent_itemsets['itemsets_str'] = frequent_itemsets['itemsets'].apply(lambda x: set(x))
 
+#Prikaz nasumicnih rezultata radi interpretacije
+rules_random=rules.sample(10, random_state = 42)
+rules_lift = rules_random[['lift']].to_numpy()
+rules_conf = rules_random[['confidence']].to_numpy()
+rules_acters = rules_random[['antecedents', 'consequents']]
+rules_lift = (rules_lift/rules_lift.max()).transpose()[0]
+rules_conf = (rules_conf/rules_conf.max()).transpose()[0]
+width = 0.40
+
+
 plt.figure(figsize=(10, 6))
 plt.bar(frequent_itemsets['itemsets_str'][:15].astype(str), frequent_itemsets['support'][:15],  facecolor='black')
 plt.xlabel('Itemsets')
@@ -309,21 +332,34 @@ plt.xticks(rotation=45, ha='right')
 plt.axhline(y=0.3, color='red', linewidth=3, linestyle='dotted', label='Threshold')
 plt.tight_layout()
 plt.show()
+x = np.arange(len(rules_random))
+offset = width / 2
 
-#Prikaz nasumicnih rezultata radi interpretacije
-rules_random=rules.sample(10, random_state = 42)
-rules_lift = rules_random[['lift']].to_numpy()
-rules_acters = rules_random[['antecedents', 'consequents']]
-rules_lift = (rules_lift/rules_lift.max()).transpose()[0]
-width = 0.40
 plt.figure(figsize=(12, 6), dpi=200)
 
-plt.bar(np.arange(len(rules_random)),rules_lift, width, color='black')
+# Plot rules_lift
+plt.bar(x - offset, rules_lift, width, color='black', label='Lift')
+
+# Plot rules_conf
+plt.bar(x + offset, rules_conf, width, hatch="//", color='red', label='Confidence')
+
 plt.axhline(y=0.5, color='red', linewidth=3, linestyle='dotted', label='Threshold')
 plt.xlabel('Instance index')
-plt.ylabel('Normalized lift value')
-plt.title("Lift values when analyzing most frequent time of crime")
-plt.xticks(range(0,10));
+plt.ylabel('Normalized value')
+plt.title("Lift and Confidence values for time of the day")
+plt.xticks(range(0, 10))
+plt.legend()
+plt.show()
+
+rules_data = {
+    'Antecedents': [', '.join(map(str, rule)) for rule in rules_acters['antecedents']],
+    'Consequents': [', '.join(map(str, rule)) for rule in rules_acters['consequents']]
+}
+
+rules_table = pd.DataFrame(rules_data)
+
+print()
+print(rules_table)
 
 rules_data = {
     'Antecedents': [', '.join(map(str, rule)) for rule in rules_acters['antecedents']],
@@ -333,6 +369,27 @@ rules_data = {
 rules_table = pd.DataFrame(rules_data)
 print()
 print(rules_table)
+
+#%% 
+
+print (df.groupby(['Crime Type', 'Time Of The Day'])['Case Number'].count())
+
+# Assuming you have a DataFrame called 'crime_df' with columns 'Crime Type' and 'Time of the day'
+# Group by 'Time of the day' and count occurrences of each crime type
+grouped_data = df.groupby(['Time Of The Day', 'Crime Type']).size().unstack(fill_value=0)
+
+#custom_colors = ['#1f1515', '#FF5733', '#D81818', '#9F3620', '#DF4C2D', '#FAE2E2', '#EC8B8B', '#BF4126']
+
+# Create a bar plot with custom colors
+grouped_data.plot(kind='bar', stacked=True, figsize=(10, 6))
+plt.xlabel('Time of the day')
+plt.ylabel('Count of Crime Types')
+plt.title('Crime Types by Time of the Day')
+plt.legend(title='Crime Type', bbox_to_anchor=(1, 1))
+plt.xticks(rotation=45, ha='right')
+plt.tight_layout()
+plt.show()
+
 
 #%% ARIMA I PREDVIDJANJE
 #%% mapiranje stringova na intove
@@ -392,12 +449,10 @@ arima_model = ARIMA(train_df['Total'], order=(p, d, q)).fit()
 y_pred_arima = arima_model.predict(start=test_df.index[0], end=test_df.index[-1])
 
 y_pred_arima = y_pred_arima * 1
-
-
 #plt.plot(train_df['Total'], color='b', linewidth=4, alpha=0.3, label='train')
-plt.plot(test_df['Total'], color='mediumblue',
-         linewidth=4, alpha=0.3, label='test')
-plt.plot(y_pred_arima, color='b', label='ARIMA model prediction')
+plt.plot(test_df['Total'], color='r',
+         linewidth=4, alpha=0.2, label='test')
+plt.plot(y_pred_arima, color='r', label='ARIMA model prediction')
 plt.title('predikcije za Total')
 plt.legend()
 plt.xlim(0,1000)
@@ -420,7 +475,7 @@ plt.show()
 plot_acf(train_df['Total'], lags=35)
 plt.show()
 
-p, d, q = 10,4, 11
+p, d, q = 10,2, 11
 arima_model = ARIMA(train_df['Total'], order=(p, d, q)).fit()
 
 y_pred_arima = arima_model.predict(
@@ -428,9 +483,9 @@ y_pred_arima = arima_model.predict(
 #y_pred_arima = np.power(y_pred_arima,10)
 
 #plt.plot(train_df['Total'], color='b', linewidth=4, alpha=0.3, label='train')
-plt.plot(test_df['Total'][20:], color='mediumblue',
-         linewidth=1, alpha=0.3, label='test')
-plt.plot(y_pred_arima[20:], color='b', label='ARIMA model')
+plt.plot(test_df['Total'][20:], color='r',
+         linewidth=1, alpha=0.2, label='test')
+plt.plot(y_pred_arima[20:], color='r', label='ARIMA model')
 plt.title('ARIMA prediction for the crime occurrance date (d = 4)')
 plt.legend()
 plt.xlim(0,300)
